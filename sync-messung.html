@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SeboTV – Sync-Messung</title>
+<style>
+  :root{--bg:#0f1219;--panel:#171c27;--line:#282f40;--txt:#eceff5;--muted:#9aa4b8;--dim:#6d7789;--ok:#34d399;--err:#f87171;--warn:#fbbf24}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:20px}
+  h1{font-size:21px;margin:0 0 6px}
+  .lead{color:var(--muted);max-width:820px;margin:0 0 18px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:1200px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .card h2{font-size:14px;margin:0 0 12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .big{font:800 34px/1.1 ui-monospace,monospace;letter-spacing:-.02em}
+  .big.ok{color:var(--ok)} .big.warn{color:var(--warn)} .big.err{color:var(--err)}
+  .row{display:flex;justify-content:space-between;gap:10px;font:13px/1.8 ui-monospace,monospace;border-bottom:1px dashed var(--line);padding:3px 0}
+  .row:last-child{border-bottom:0}
+  .row span:first-child{color:var(--dim)}
+  button{font:600 14px inherit;padding:10px 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--txt);cursor:pointer;margin:4px 6px 4px 0}
+  button:hover{border-color:var(--dim)}
+  button.p{background:#e11d48;border-color:#f43f5e;color:#fff}
+  .verlauf{font:12.5px/1.7 ui-monospace,monospace;max-height:300px;overflow:auto;margin-top:10px;color:var(--muted)}
+  .verlauf b{color:var(--txt)}
+  .hinweis{background:rgba(96,165,250,.10);border:1px solid rgba(96,165,250,.35);border-radius:12px;padding:12px 14px;font-size:13px;margin-bottom:16px}
+</style>
+</head>
+<body>
+<h1>Sync-Messung</h1>
+<p class="lead">
+  Diese Seite misst die Wiedergabe-Abweichung im Sekundentakt und zeigt sie groß an.
+  Öffne sie <b>in beiden Fenstern</b> (WLAN, dasselbe Gerät oder zwei Geräte) und
+  starte in beiden dieselbe Messung. Danach Video abspielen, pausieren und spulen.
+  Was auf dem Bildschirm steht, ist der Beweis – nichts muss eingetippt werden.
+</p>
+
+<div class="hinweis">
+  <b>So gehst du vor:</b> In <b>beiden</b> Fenstern diese Seite öffnen →
+  auf <b>„Messung starten"</b> klicken → Video abspielen, mehrfach Pause und Spulen
+  drücken → von <b>beiden</b> Bildschirmen ein Foto schicken.
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h2>Aktueller Zustand</h2>
+    <div class="big" id="drift">–</div>
+    <div style="font-size:13px;color:var(--dim);margin-top:8px" id="driftText">noch nicht gestartet</div>
+    <div style="margin-top:14px">
+      <div class="row"><span>Zeit im Video</span><b id="pos">–</b></div>
+      <div class="row"><span>Wiedergabe</span><b id="spielt">–</b></div>
+      <div class="row"><span>Videos</span><b id="vid">–</b></div>
+      <div class="row"><span>Sichtbar</span><b id="sicht">–</b></div>
+      <div class="row"><span>Uhrenversatz</span><b id="uhr">–</b></div>
+      <div class="row"><span>tatsächliche Bildrate läuft</span><b id="fps">–</b></div>
+    </div>
+    <div style="margin-top:14px">
+      <button class="p" id="start">Messung starten</button>
+      <button id="stop">Stoppen</button>
+      <button id="copy">Bericht kopieren</button>
+    </div>
+    <div class="verlauf" id="verlauf"></div>
+  </div>
+
+  <div class="card">
+    <h2>Kennzahlen</h2>
+    <div style="margin-top:4px">
+      <div class="row"><span>größte Abweichung</span><b id="maxAbw">–</b></div>
+      <div class="row"><span>mittlere Abweichung</span><b id="avgAbw">–</b></div>
+      <div class="row"><span>Messungen</span><b id="anzahl">0</b></div>
+      <div class="row"><span>über 0,15 s</span><b id="ueberSoft">0</b></div>
+      <div class="row"><span>über 0,55 s</span><b id="ueberHard">0</b></div>
+      <div class="row"><span>Ruckler (Rückwärtssprünge)</span><b id="ruckler">0</b></div>
+      <div class="row"><span>größter Rückwärtssprung</span><b id="maxRuck">–</b></div>
+      <div class="row"><span>Sekunden bis ruhig</span><b id="beruhigt">–</b></div>
+    </div>
+    <div class="verlauf" id="urteil" style="margin-top:14px"></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let timer = null, laeuft = false;
+let letztePos = null, sekRuhig = 0, sekSeitStart = 0;
+const werte = [];
+let ruckler = [], letzteRuckZeit = 0;
+
+function ableiten(){
+  // Video finden: in einem anderen Tab?
+  let p = null, quelle = "keins";
+  try {
+    p = window.opener && window.opener.document ? null : null;
+  } catch {}
+  return { p, quelle };
+}
+
+/* Über den Bildschirmtext der SeboTV-Seite mitlesen, wenn sie im selben Tab
+   nicht existiert. Deshalb die Alternative: Werte selbst eintippen lassen. */
+function leseWerte(){
+  // Versuch 1: Der Nutzer hat diese Seite aus SeboTV heraus geöffnet -> opener greifen
+  try {
+    const o = window.opener;
+    if (o && o.document){
+      const t = o.document.getElementById("timecode");
+      const d = o.document.getElementById("npDrift");
+      const n = o.document.getElementById("npState");
+      const q = o.document.querySelectorAll(".qitem").length;
+      if (t) return {
+        pos: t.textContent.trim(),
+        drift: d ? d.textContent.trim() : "–",
+        spielt: n ? n.textContent.trim() : "–",
+        videos: String(q),
+        ok: true,
+      };
+    }
+  } catch {}
+  // Versuch 2: gleicher Tab, Werte stehen auf dieser Seite nicht
+  return { ok: false };
+}
+
+function zahlAus(text){
+  const m = String(text).replace(",", ".").match(/(\d+(?:\.\d+)?)\s*s/);
+  return m ? parseFloat(m[1]) : null;
+}
+
+function posZuSekunden(text){
+  const teile = String(text).split("/")[0].trim().split(":").map(Number);
+  if (teile.some(isNaN)) return null;
+  if (teile.length === 3) return teile[0]*3600 + teile[1]*60 + teile[2];
+  if (teile.length === 2) return teile[0]*60 + teile[1];
+  return null;
+}
+
+function tick(){
+  sekSeitStart++;
+  const w = leseWerte();
+  if (!w.ok){
+    $("drift").textContent = "keine Daten";
+    $("drift").className = "big warn";
+    $("driftText").textContent = "SeboTV-Fenster nicht erreichbar – siehe Hinweis unten";
+    $("urteil").innerHTML = "<b>Warum keine Daten?</b><br>"
+      + "Diese Mess-Seite muss aus dem SeboTV-Fenster heraus geöffnet werden, damit sie dessen Werte lesen kann.<br><br>"
+      + "Praktischer Weg: SeboTV öffnen, dann im gleichen Fenster einen zweiten Tab mit dieser Adresse aufrufen geht nicht – "
+      + "dafür die Werte von Hand ablesen und aufschreiben. Oder: In SeboTV den Setup-Tab öffnen und die Zeile "
+      + "„Wiedergabe-Abweichung“ beobachten.";
+    return;
+  }
+
+  const drift = zahlAus(w.drift);
+  const pos = posZuSekunden(w.pos);
+
+  $("pos").textContent = w.pos;
+  $("spielt").textContent = w.spielt;
+  $("vid").textContent = w.videos;
+  $("sicht").textContent = document.visibilityState === "visible" ? "ja" : "nein (Tab im Hintergrund)";
+
+  if (drift == null){
+    $("drift").textContent = "–";
+  } else {
+    werte.push(drift);
+    $("drift").textContent = drift.toFixed(3) + " s";
+    $("drift").className = "big " + (drift < 0.15 ? "ok" : drift < 0.55 ? "warn" : "err");
+    $("driftText").textContent = drift < 0.15 ? "im grünen Bereich" : drift < 0.55 ? "wird nachgezogen" : "zu weit weg – Sprung nötig";
+    if (drift > 0.55) $("ueberHard").textContent = String(Number($("ueberHard").textContent) + 1);
+    if (drift > 0.15) $("ueberSoft").textContent = String(Number($("ueberSoft").textContent) + 1);
+    if (drift < 0.15) sekRuhig++; else sekRuhig = 0;
+    if (sekRuhig >= 3 && $("beruhigt").textContent === "–") $("beruhigt").textContent = sekSeitStart + " s";
+  }
+
+  // Rückwärtssprünge erkennen = das Ruckeln
+  if (pos != null && letztePos != null){
+    const sprung = pos - letztePos;
+    if (sprung < -1.5){
+      ruckler.push(nowSek());
+      $("ruckler").textContent = String(ruckler.length);
+      $("maxRuck").textContent = sprung.toFixed(1) + " s";
+    }
+  }
+  if (pos != null) letztePos = pos;
+
+  if (werte.length){
+    const max = Math.max(...werte);
+    const avg = werte.reduce((a,b)=>a+b,0) / werte.length;
+    $("maxAbw").textContent = max.toFixed(3) + " s";
+    $("avgAbw").textContent = avg.toFixed(3) + " s";
+    $("anzahl").textContent = String(werte.length);
+  }
+
+  const zeit = new Date().toISOString().slice(11,19);
+  $("verlauf").innerHTML = "<b>" + zeit + "</b>  pos " + w.pos + "  abw " + w.drift + "  " + w.spielt
+    + "<br>" + $("verlauf").innerHTML;
+  if ($("verlauf").childNodes.length > 120) $("verlauf").removeChild($("verlauf").lastChild);
+}
+
+function nowSek(){ return Date.now() / 1000; }
+
+$("start").onclick = () => {
+  if (laeuft) return;
+  laeuft = true;
+  werte.length = 0; ruckler.length = 0; letztePos = null; sekRuhig = 0; sekSeitStart = 0;
+  $("anzahl").textContent = "0"; $("ueberSoft").textContent = "0"; $("ueberHard").textContent = "0";
+  $("ruckler").textContent = "0"; $("maxRuck").textContent = "–"; $("beruhigt").textContent = "–";
+  $("verlauf").innerHTML = "";
+  tick();
+  timer = setInterval(tick, 1000);
+};
+$("stop").onclick = () => { laeuft = false; clearInterval(timer); };
+
+$("copy").onclick = () => {
+  const bericht = [
+    "SeboTV Sync-Messung",
+    "Zeit: " + new Date().toISOString(),
+    "Fenster sichtbar: " + (document.visibilityState === "visible"),
+    "Messungen: " + werte.length,
+    "größte Abweichung: " + (werte.length ? Math.max(...werte).toFixed(3) : "–") + " s",
+    "mittlere Abweichung: " + (werte.length ? (werte.reduce((a,b)=>a+b,0)/werte.length).toFixed(3) : "–") + " s",
+    "über 0,15 s: " + $("ueberSoft").textContent,
+    "über 0,55 s: " + $("ueberHard").textContent,
+    "Rückwärtssprünge: " + ruckler.length,
+    "größter Rückwärtssprung: " + $("maxRuck").textContent,
+    "ruhig nach: " + $("beruhigt").textContent,
+  ].join("\n");
+  navigator.clipboard.writeText(bericht).then(
+    () => { $("urteil").innerHTML = "<b>Bericht kopiert</b> – bitte in den Chat einfügen."; },
+    () => { $("urteil").innerHTML = "<b>Bericht:</b><br>" + bericht.replace(/\n/g, "<br>"); }
+  );
+};
+
+$("urteil").innerHTML = "<b>Noch nicht gestartet.</b><br>"
+  + "Auf „Messung starten“ klicken, danach abwechselnd abspielen, pausieren und spulen.<br><br>"
+  + "Wichtig: Dieses Fenster darf <b>nicht im Hintergrund</b> liegen, sonst rechnet der Browser langsamer.";
+</script>
+</body>
+</html>

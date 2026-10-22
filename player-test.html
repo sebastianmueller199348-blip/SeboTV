@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Player-Test – nur YouTube</title>
+<style>
+  :root{--bg:#0f1219;--panel:#171c27;--line:#282f40;--txt:#eceff5;--muted:#9aa4b8;--dim:#6d7789;--ok:#34d399;--err:#f87171;--warn:#fbbf24}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:22px}
+  h1{margin:0 0 6px;font-size:22px}
+  p.lead{margin:0 0 20px;color:var(--muted);max-width:760px}
+  .box{max-width:900px;margin:0 auto}
+  .frame{position:relative;width:100%;aspect-ratio:16/9;background:#000;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .frame iframe,#p1,#p2{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:16px 0}
+  button{font:600 14px inherit;padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--txt);cursor:pointer}
+  button:hover{border-color:var(--dim)}
+  input{font:14px ui-monospace,monospace;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:#0e1218;color:var(--txt);width:180px}
+  .status{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;font:13px/1.7 ui-monospace,monospace;white-space:pre-wrap;word-break:break-word}
+  .ok{color:var(--ok)}.bad{color:var(--err)}.warn{color:var(--warn)}
+  h2{font-size:15px;margin:26px 0 10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>Player-Test</h1>
+  <p class="lead">Eine Seite, ein Video, kein Schnickschnack. Wenn hier ein Bild kommt, ist deine Umgebung in Ordnung und der Fehler liegt in SeboTV. Bleibt es schwarz, liegt es an deinem Browser, deinem Netz oder am Video.</p>
+
+  <h2>Test 1 — eingebetteter Player mit API</h2>
+  <div class="frame"><div id="p1"></div></div>
+
+  <div class="row">
+    <input id="vid" value="dQw4w9WgXcQ" placeholder="Video-ID">
+    <button id="load">Video laden</button>
+    <button id="tests">Andere Testvideos durchprobieren</button>
+  </div>
+
+  <h2>Status</h2>
+  <div class="status" id="log">startet…</div>
+
+  <h2>Test 2 — schlichter Rahmen ohne API (Vergleich)</h2>
+  <div class="frame"><iframe id="p2" src="" allow="autoplay; encrypted-media; fullscreen" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
+  <div class="row"><button id="plain">Einfachen Rahmen mit demselben Video laden</button></div>
+
+  <p class="lead" style="margin-top:20px;font-size:13px;color:var(--dim)">
+    Gut einbettbare Testvideos: ARD, ZDF, Terra X, MrWissen2go, Tagesschau. Musikvideos und TV-Ausschnitte
+    sind oft gesperrt — wenn Test 1 dunkel bleibt und Test 2 dasselbe Video zeigt, ist das Video der Grund,
+    nicht die Seite.
+  </p>
+</div>
+
+<script>
+const logBox = document.getElementById("log");
+const lines = [];
+function log(msg, kind){
+  const t = new Date().toLocaleTimeString("de-DE");
+  lines.push("[" + t + "] " + msg);
+  if (lines.length > 40) lines.shift();
+  logBox.innerHTML = lines.map(l => l).join("\n");
+}
+function logK(msg, kind){ log('<span class="' + (kind||"") + '">' + msg + "</span>"); }
+
+/* Umgebung protokollieren – das ist oft schon die Antwort */
+logK("Seite: " + location.href, location.protocol === "file:" ? "bad" : "ok");
+logK("Protokoll: " + location.protocol + (location.protocol === "file:" ? "  <== bei file:// fehlt YouTube die Herkunft (Fehler 153!)" : ""), location.protocol === "file:" ? "bad" : "ok");
+logK("Herkunft (origin): " + (location.origin || "(keine)"), location.origin && location.origin !== "null" ? "ok" : "bad");
+
+let player = null;
+const CODES = {
+  2: "Ungültige Video-ID",
+  5: "Video im HTML5-Player nicht abspielbar",
+  100: "Video nicht gefunden oder privat",
+  101: "Der Besitzer erlaubt die Einbettung NICHT",
+  150: "Der Besitzer erlaubt die Einbettung NICHT (andere Kodierung)",
+  153: "Herkunft (Referer) fehlt ODER Einbettung gesperrt",
+};
+
+function createPlayer(id){
+  const mount = document.getElementById("p1");
+  mount.innerHTML = '<div id="p1-inner" style="width:100%;height:100%"></div>';
+  player = new YT.Player("p1-inner", {
+    width: "100%", height: "100%",
+    videoId: id,
+    playerVars: {
+      controls: 1, fs: 1, modestbranding: 1, rel: 0,
+      playsinline: 1, enablejsapi: 1, autoplay: 1,
+      origin: location.origin && location.origin !== "null" ? location.origin : undefined,
+    },
+    events: {
+      onReady: () => logK("Player bereit ✓", "ok"),
+      onStateChange: (e) => {
+        const n = e.data;
+        const name = n === 1 ? "SPIELT" : n === 2 ? "pausiert" : n === 3 ? "lädt" : n === 0 ? "zu Ende" : (n === 5 ? "vorgemerkt" : "?");
+        logK("Zustand: " + name + " (" + n + ")", n === 1 ? "ok" : "");
+      },
+      onError: (e) => logK("FEHLER " + e.data + ": " + (CODES[e.data] || "unbekannt"), "bad"),
+    },
+  });
+}
+
+window.onYouTubeIframeAPIReady = () => {
+  logK("YouTube-API geladen ✓", "ok");
+  createPlayer(document.getElementById("vid").value.trim() || "dQw4w9WgXcQ");
+};
+
+/* Wache: wenn die API nicht kommt, ist sie blockiert */
+setTimeout(() => {
+  if (!window.YT || !window.YT.Player) logK("iframe_api NICHT geladen – Werbeblocker oder Filter blockiert youtube.com/iframe_api", "bad");
+}, 6000);
+
+document.getElementById("load").onclick = () => {
+  const id = document.getElementById("vid").value.trim();
+  if (!player){ logK("Player noch nicht bereit.", "warn"); return; }
+  logK("lade Video " + id);
+  player.loadVideoById(id);
+};
+
+document.getElementById("plain").onclick = () => {
+  const id = document.getElementById("vid").value.trim();
+  document.getElementById("p2").src = "https://www.youtube.com/embed/" + encodeURIComponent(id)
+    + "?autoplay=1&controls=1&rel=0&playsinline=1";
+  logK("Test 2 geladen: " + id + " — wenn hier Bild kommt, liegt es am Video oder an der API, nicht an der Seite.", "warn");
+};
+
+document.getElementById("tests").onclick = () => {
+  const ids = ["dQw4w9WgXcQ", "aqz-KE-bpKQ", "jNQXAC9IVRw", "hFZFjoX2cGg"];
+  let i = 0;
+  logK("probiere Testvideos durch…", "warn");
+  const next = () => {
+    if (i >= ids.length){ logK("fertig.", "warn"); return; }
+    const id = ids[i++];
+    logK("→ " + id);
+    if (player) player.loadVideoById(id);
+    setTimeout(next, 4000);
+  };
+  next();
+};
+</script>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
