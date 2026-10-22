@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SeboTV</title>
+<style>
+:root{--bg:#e9e9ee;--win:rgba(250,250,252,.78);--side:rgba(236,236,242,.7);--card:rgba(255,255,255,.7);--tx:#1d1d1f;--tx2:#6e6e73;--line:rgba(0,0,0,.09);--blue:#0a84ff;--red:#ff453a;--shadow:0 30px 80px rgba(0,0,0,.22),0 0 0 .5px rgba(0,0,0,.18)}
+@media(prefers-color-scheme:dark){:root{--bg:#0b0b10;--win:rgba(34,34,40,.78);--side:rgba(28,28,34,.7);--card:rgba(60,60,68,.55);--tx:#f5f5f7;--tx2:#98989f;--line:rgba(255,255,255,.1);--shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 .5px rgba(255,255,255,.14)}}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{font:14px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",sans-serif;color:var(--tx);-webkit-font-smoothing:antialiased;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:clamp(0px,2.5vw,32px);position:relative;overflow:hidden}
+body::before,body::after{content:"";position:fixed;width:55vmax;height:55vmax;border-radius:50%;filter:blur(90px);opacity:.55;z-index:-1}
+body::before{background:#5e5ce6;top:-20vmax;left:-15vmax}
+body::after{background:#ff375f;bottom:-25vmax;right:-15vmax;opacity:.4}
+button,input{font:inherit;color:inherit}
+.win{width:min(1280px,100%);height:min(820px,100%);background:var(--win);backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);border-radius:14px;box-shadow:var(--shadow);display:grid;grid-template-rows:52px 1fr;overflow:hidden}
+.bar{display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid var(--line)}
+.lights{display:flex;gap:8px}.lights i{width:12px;height:12px;border-radius:50%;background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.bar h1{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.sp{flex:1}
+.pill{display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:5px 12px;font-size:12.5px;color:var(--tx2)}
+.dot{width:8px;height:8px;border-radius:50%;background:#30d158}.dot.off{background:#ff9f0a}
+.btn{background:var(--blue);color:#fff;border:0;border-radius:8px;padding:7px 14px;font-weight:600;cursor:pointer;transition:transform .15s,opacity .15s}
+.btn:active{transform:scale(.96)}.btn.ghost{background:var(--card);color:var(--tx);border:1px solid var(--line)}
+.btn:focus-visible,input:focus-visible,.tab:focus-visible{outline:3px solid color-mix(in srgb,var(--blue) 55%,transparent);outline-offset:1px}
+.body{display:grid;grid-template-columns:210px 1fr 340px;min-height:0}
+.side{background:var(--side);border-right:1px solid var(--line);padding:16px 12px;overflow:auto}
+.side h3{font-size:12px;font-weight:600;color:var(--tx2);padding:0 8px 8px}
+.who{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px}
+.av{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:600;font-size:12px;flex:none}
+.who span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.who small{color:var(--tx2)}
+.main{padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0;min-height:0}
+.stage{position:relative;aspect-ratio:16/9;width:100%;max-height:calc(100% - 60px);margin:0 auto;background:#000;border-radius:12px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.stage>div,.stage iframe{position:absolute;inset:0;width:100%;height:100%}
+.empty{display:grid;place-items:center;text-align:center;color:#ccc;padding:20px}
+.empty b{display:block;font-size:20px;color:#fff;font-weight:600;margin-bottom:4px}
+.add{display:flex;gap:8px}
+.add input{flex:1;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;min-width:0}
+.panel{border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.tabs{display:flex;gap:2px;margin:12px;padding:2px;background:var(--card);border-radius:9px;border:1px solid var(--line)}
+.tab{flex:1;border:0;background:none;border-radius:7px;padding:5px;cursor:pointer;color:var(--tx2);font-weight:500}
+.tab[aria-selected=true]{background:var(--win);color:var(--tx);box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.list{flex:1;overflow:auto;padding:0 12px 12px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:88%;padding:8px 12px;border-radius:16px;background:var(--card);border:1px solid var(--line);align-self:flex-start;overflow-wrap:anywhere}
+.msg b{display:block;font-size:11.5px;font-weight:600;margin-bottom:1px}
+.msg.me{align-self:flex-end;background:var(--blue);color:#fff;border-color:transparent}.msg.me b{display:none}
+.sys{align-self:center;color:var(--tx2);font-size:12px}
+.q{display:flex;gap:10px;align-items:center;padding:8px;border-radius:10px;background:var(--card);border:1px solid var(--line)}
+.q.now{border-color:var(--blue)}
+.q img{width:80px;aspect-ratio:16/9;object-fit:cover;border-radius:6px;cursor:pointer;flex:none}
+.q p{flex:1;font-size:12.5px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.q button{border:0;background:none;color:var(--tx2);cursor:pointer;font-size:16px;padding:4px 6px;border-radius:6px}
+.q button:hover{color:var(--red)}
+.chatin{display:flex;gap:8px;padding:12px;border-top:1px solid var(--line)}
+.chatin input{flex:1;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:8px 14px;min-width:0}
+.ph{color:var(--tx2);text-align:center;padding:24px 8px}
+dialog{border:0;border-radius:18px;padding:28px;width:min(400px,92vw);background:var(--win);color:var(--tx);backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);box-shadow:var(--shadow);margin:auto}
+dialog::backdrop{background:rgba(0,0,0,.35);backdrop-filter:blur(6px)}
+dialog h2{font-size:24px;letter-spacing:-.02em;margin-bottom:4px}
+dialog p{color:var(--tx2);margin-bottom:18px}
+dialog label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin:12px 0 5px}
+dialog input[type=text]{width:100%;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.cols{display:flex;gap:10px}.cols button{width:28px;height:28px;border-radius:50%;border:2px solid transparent;cursor:pointer;outline-offset:2px}
+.cols button[aria-pressed=true]{border-color:var(--tx)}
+dialog .btn{width:100%;margin-top:20px;padding:11px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,20px);background:var(--tx);color:var(--bg);padding:8px 16px;border-radius:99px;opacity:0;transition:.25s;pointer-events:none;font-weight:500}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+@media(max-width:980px){.body{grid-template-columns:1fr;grid-template-rows:auto 1fr;overflow:auto}.side,.panel{border:0}.side{display:none}.win{height:100%;border-radius:0}body{padding:0}.panel{min-height:380px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="win">
+  <div class="bar">
+    <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+    <h1>SeboTV</h1><span class="sp"></span>
+    <div class="pill"><span class="dot" id="dot"></span><span id="roomLbl">Kein Raum</span></div>
+    <button class="btn ghost" id="inv">Einladen</button>
+  </div>
+  <div class="body">
+    <aside class="side"><h3>Im Raum</h3><div id="people"></div></aside>
+    <section class="main">
+      <div class="stage"><div id="player"></div><div class="empty" id="empty"><div><b>Noch kein Video</b>Füge unten einen YouTube-Link hinzu.</div></div></div>
+      <form class="add" id="addF"><input id="url" placeholder="YouTube-Link einfügen" aria-label="YouTube-Link" autocomplete="off"><button class="btn">Hinzufügen</button></form>
+    </section>
+    <aside class="panel">
+      <div class="tabs" role="tablist"><button class="tab" role="tab" aria-selected="true" data-t="chat">Chat</button><button class="tab" role="tab" aria-selected="false" data-t="queue">Playlist</button></div>
+      <div class="list" id="chat"></div>
+      <div class="list" id="queue" hidden></div>
+      <form class="chatin" id="chatF"><input id="msg" placeholder="Nachricht schreiben" aria-label="Nachricht" autocomplete="off"><button class="btn">Senden</button></form>
+    </aside>
+  </div>
+</div>
+
+<dialog id="dlg">
+  <h2>Willkommen bei SeboTV</h2><p>Gemeinsam YouTube schauen, in perfektem Gleichklang.</p>
+  <label for="nm">Dein Name</label><input type="text" id="nm" maxlength="20" autocomplete="off">
+  <label>Farbe</label><div class="cols" id="cols"></div>
+  <label for="rm">Raumcode</label><input type="text" id="rm" maxlength="24" autocomplete="off" placeholder="Leer lassen für neuen Raum">
+  <button class="btn" id="go">Raum betreten</button>
+</dialog>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+/* Optional: Supabase-Daten eintragen, damit Freunde auf verschiedenen Geräten verbunden sind.
+   Ohne Eintrag läuft SeboTV im Demo-Modus (nur Tabs im selben Browser). */
+const SUPABASE_URL = "";
+const SUPABASE_ANON_KEY = "";
+
+const $=s=>document.querySelector(s), COLORS=["#0a84ff","#bf5af2","#ff375f","#ff9f0a","#30d158","#64d2ff"];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const me={id:crypto.randomUUID(),name:localStorage.getItem("stv-name")||"",color:localStorage.getItem("stv-col")||COLORS[0]};
+let room="",ch=null,yt=null,ready=false,queue=[],cur=null,peers={},mute=0,pending=null,online=false;
+
+function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");clearTimeout(toast.h);toast.h=setTimeout(()=>e.classList.remove("on"),2200)}
+
+/* ---------- Transport: Supabase Realtime oder BroadcastChannel ---------- */
+function connect(code){
+  const h=(ev,p)=>handle(ev,p);
+  if(SUPABASE_URL&&SUPABASE_ANON_KEY&&window.supabase){
+    const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+    const c=sb.channel("stv-"+code,{config:{broadcast:{self:false}}});
+    ["hi","req","state","queue","chat"].forEach(e=>c.on("broadcast",{event:e},m=>h(e,m.payload)));
+    c.subscribe(s=>{online=s==="SUBSCRIBED";$("#dot").classList.toggle("off",!online);if(online)send("req",{})});
+    ch={send:(e,p)=>c.send({type:"broadcast",event:e,payload:p})};
+  }else{
+    const c=new BroadcastChannel("stv-"+code);c.onmessage=m=>h(m.data.e,m.data.p);
+    ch={send:(e,p)=>c.postMessage({e,p})};online=true;$("#dot").classList.add("off");setTimeout(()=>send("req",{}),300);
+    toast("Demo-Modus: Supabase nicht eingerichtet");
+  }
+}
+const send=(e,p)=>ch&&ch.send(e,{...p,from:me.id});
+
+function handle(e,p){
+  if(p.from===me.id)return;
+  if(e==="hi"){peers[p.from]={...p,seen:Date.now()};people()}
+  else if(e==="req"){send("queue",{queue,cur});if(ready&&cur)pushState()}
+  else if(e==="queue"){queue=p.queue;cur=p.cur;renderQ()}
+  else if(e==="state")applyState(p);
+  else if(e==="chat")addMsg(p.name,p.text,false,p.color);
+}
+setInterval(()=>{if(!room)return;send("hi",{name:me.name,color:me.color});const n=Date.now();let c=false;for(const k in peers)if(n-peers[k].seen>9000){delete peers[k];c=true}if(c)people()},3000);
+
+/* ---------- Spieler ---------- */
+window.onYouTubeIframeAPIReady=()=>{
+  yt=new YT.Player("player",{width:"100%",height:"100%",playerVars:{playsinline:1,rel:0,modestbranding:1},events:{
+    onReady:()=>{ready=true;if(pending){applyState(pending);pending=null}else if(cur)load(cur,0,false)},
+    onStateChange:e=>{
+      if(Date.now()<mute)return;
+      if(e.data===YT.PlayerState.PLAYING||e.data===YT.PlayerState.PAUSED)pushState();
+      if(e.data===YT.PlayerState.ENDED)next();
+    }}});
+};
+const tag=document.createElement("script");tag.src="https://www.youtube.com/iframe_api";document.head.appendChild(tag);
+
+function pushState(){if(!ready||!cur)return;send("state",{vid:cur,t:yt.getCurrentTime(),playing:yt.getPlayerState()===1})}
+function load(v,t,play){mute=Date.now()+1200;$("#empty").hidden=true;yt[play?"loadVideoById":"cueVideoById"]({videoId:v,startSeconds:t||0})}
+function applyState(p){
+  if(!ready){pending=p;return}
+  mute=Date.now()+900;
+  if(p.vid!==cur||!yt.getVideoData||yt.getVideoData().video_id!==p.vid){cur=p.vid;load(p.vid,p.t,p.playing);renderQ();return}
+  if(Math.abs(yt.getCurrentTime()-p.t)>1.5)yt.seekTo(p.t,true);
+  p.playing?yt.playVideo():yt.pauseVideo();
+}
+function play(v){cur=v;renderQ();send("queue",{queue,cur});if(ready){load(v,0,true);setTimeout(pushState,1400)}}
+function next(){const i=queue.findIndex(x=>x.id===cur);if(queue[i+1])play(queue[i+1].id)}
+
+/* ---------- Playlist ---------- */
+const vidId=u=>{const m=u.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([\w-]{11})/);return m?m[1]:/^[\w-]{11}$/.test(u.trim())?u.trim():null};
+$("#addF").onsubmit=async e=>{
+  e.preventDefault();const id=vidId($("#url").value);if(!id)return toast("Das ist kein gültiger YouTube-Link");
+  $("#url").value="";let title="Video "+id;
+  try{const r=await fetch("https://www.youtube.com/oembed?format=json&url="+encodeURIComponent("https://youtu.be/"+id));title=(await r.json()).title||title}catch(_){}
+  queue.push({id,title});const first=!cur;send("queue",{queue,cur});renderQ();if(first)play(id);else toast("Zur Playlist hinzugefügt");
+};
+function renderQ(){
+  const q=$("#queue");
+  q.innerHTML=queue.length?"":'<p class="ph">Die Playlist ist leer. Füge ein Video hinzu.</p>';
+  queue.forEach((v,i)=>{
+    const d=document.createElement("div");d.className="q"+(v.id===cur?" now":"");
+    d.innerHTML=`<img src="https://i.ytimg.com/vi/${v.id}/mqdefault.jpg" alt="" title="Jetzt abspielen"><p>${esc(v.title)}</p><button aria-label="Entfernen">✕</button>`;
+    d.querySelector("img").onclick=()=>play(v.id);
+    d.querySelector("button").onclick=()=>{queue.splice(i,1);send("queue",{queue,cur});renderQ()};
+    q.appendChild(d);
+  });
+}
+
+/* ---------- Chat & Nutzer ---------- */
+function addMsg(name,text,mine,color){
+  const c=$("#chat"),d=document.createElement("div");d.className="msg"+(mine?" me":"");
+  d.innerHTML=`<b style="color:${esc(color||"inherit")}">${esc(name)}</b>${esc(text)}`;c.appendChild(d);c.scrollTop=c.scrollHeight;
+}
+function sys(t){const c=$("#chat"),d=document.createElement("div");d.className="sys";d.textContent=t;c.appendChild(d)}
+$("#chatF").onsubmit=e=>{e.preventDefault();const t=$("#msg").value.trim();if(!t)return;$("#msg").value="";addMsg(me.name,t,true);send("chat",{name:me.name,color:me.color,text:t})};
+function people(){
+  const all=[{...me,you:1},...Object.values(peers)];
+  $("#people").innerHTML=all.map(p=>`<div class="who"><div class="av" style="background:${esc(p.color)}">${esc((p.name||"?")[0].toUpperCase())}</div><span>${esc(p.name)}${p.you?" <small>(du)</small>":""}</span></div>`).join("");
+}
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected",x===b));
+  $("#chat").hidden=b.dataset.t!=="chat";$("#queue").hidden=b.dataset.t!=="queue";$("#chatF").hidden=b.dataset.t!=="chat";
+});
+$("#inv").onclick=async()=>{const u=location.href.split("#")[0]+"#"+room;try{await navigator.clipboard.writeText(u);toast("Einladungslink kopiert")}catch(_){prompt("Einladungslink:",u)}};
+
+/* ---------- Start ---------- */
+const dlg=$("#dlg");
+$("#cols").innerHTML=COLORS.map(c=>`<button type="button" aria-label="Farbe ${c}" aria-pressed="${c===me.color}" style="background:${c}" data-c="${c}"></button>`).join("");
+$("#cols").onclick=e=>{const b=e.target.closest("button");if(!b)return;me.color=b.dataset.c;[...$("#cols").children].forEach(x=>x.setAttribute("aria-pressed",x===b))};
+$("#nm").value=me.name;$("#rm").value=decodeURIComponent(location.hash.slice(1));
+$("#go").onclick=()=>{
+  const n=$("#nm").value.trim();if(!n){$("#nm").focus();return}
+  me.name=n;localStorage.setItem("stv-name",n);localStorage.setItem("stv-col",me.color);
+  room=($("#rm").value.trim()||Math.random().toString(36).slice(2,8)).toLowerCase().replace(/[^a-z0-9-]/g,"");
+  location.hash=room;$("#roomLbl").textContent="Raum "+room;dlg.close();
+  connect(room);people();renderQ();sys("Du bist dem Raum beigetreten");
+};
+dlg.addEventListener("cancel",e=>e.preventDefault());
+dlg.showModal();
+</script>
+</body>
+</html>
